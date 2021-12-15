@@ -126,10 +126,10 @@ class Trainer:
         self.model.train()
 
     def save_state_dict(self):
-        torch.save(self.model.state_dict(), f"epoch={self.epoch}.pth")
+        torch.save(self.model.state_dict(), f"checkpoints/epoch={self.epoch}.pth")
 
     def save(self):
-        torch.save(self.model, f"final.pth")
+        torch.save(self.model, f"checkpoints/final.pth")
 
 
 if __name__ == '__main__':
