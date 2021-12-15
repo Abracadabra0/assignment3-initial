@@ -7,6 +7,7 @@ from torch.optim.lr_scheduler import ExponentialLR
 from tensorboardX import SummaryWriter
 from models import ERNIEGuesser
 from tqdm import tqdm
+import os
 
 
 class Trainer:
@@ -15,7 +16,7 @@ class Trainer:
                  train_dataset,
                  test_dataset,
                  batch_size=64,
-                 n_epochs=400,
+                 n_epochs=100,
                  lr=5e-5,
                  lr_decay=0.98,
                  print_every=10,
@@ -31,6 +32,7 @@ class Trainer:
         self.print_every = print_every
         self.test_every = test_every
         self.save_every = save_every
+        self.best_accuracy = 0
 
         self.train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         self.test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
@@ -70,7 +72,7 @@ class Trainer:
                 self.test()
             if self.epoch % self.save_every == 0:
                 self.save_state_dict()
-        self.save()
+        self.save(f"checkpoints/final.pth")
 
     def test(self):
         self.model.eval()
@@ -97,11 +99,17 @@ class Trainer:
         self.writer.add_scalar('test/loss', loss, self.epoch)
         self.writer.add_scalar('test/accuracy', accuracy, self.epoch)
         print(f'Epoch {self.epoch}: test loss={loss}, test accuracy={accuracy}')
+        if accuracy > self.best_accuracy:
+            for filename in os.listdir('checkpoints'):
+                if filename.find('best') != -1:
+                    os.remove(os.path.join('checkpoints', filename))
+            self.best_accuracy = accuracy
+            self.save("checkpoints/best(accuracy=%.2d).pth" % accuracy)
         self.model.train()
 
     def validate(self, dataset):
         self.model.eval()
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=4)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
         with torch.no_grad():
             all_loss = 0
             all_correct = 0
@@ -129,8 +137,8 @@ class Trainer:
     def save_state_dict(self):
         torch.save(self.model.state_dict(), f"checkpoints/epoch={self.epoch}.pth")
 
-    def save(self):
-        torch.save(self.model, f"checkpoints/final.pth")
+    def save(self, path):
+        torch.save(self.model, path)
 
 
 if __name__ == '__main__':
