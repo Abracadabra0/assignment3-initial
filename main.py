@@ -8,6 +8,8 @@ from tensorboardX import SummaryWriter
 from models import ERNIEGuesser
 from tqdm import tqdm
 import os
+import argparse
+import json
 
 
 class Trainer:
@@ -21,7 +23,8 @@ class Trainer:
                  lr_decay=0.99,
                  print_every=10,
                  test_every=10,
-                 save_every=10,
+                 save_every=20,
+                 name="exp",
                  device=torch.device(0)):
         self.model = model.to(device)
         self.device = device
@@ -40,7 +43,9 @@ class Trainer:
         self.optimizer = Adam((x for x in model.parameters() if x.requires_grad),
                               lr=lr)
         self.scheduler = ExponentialLR(self.optimizer, lr_decay)
-        self.writer = SummaryWriter()
+        self.name = name
+        self.writer = SummaryWriter(f'runs/{name}')
+        os.makedirs(f'checkpoints/{name}', exist_ok=True)
 
     def train(self):
         self.model.train()
@@ -76,7 +81,7 @@ class Trainer:
                 self.test()
             if self.epoch % self.save_every == 0:
                 self.save_state_dict()
-        self.save(f"checkpoints/final.pth")
+        self.save(f"final.pth")
 
     def test(self):
         self.model.eval()
@@ -108,7 +113,7 @@ class Trainer:
                 if filename.find('best') != -1:
                     os.remove(os.path.join('checkpoints', filename))
             self.best_accuracy = accuracy
-            self.save("checkpoints/best(accuracy=%.2f).pth" % accuracy)
+            self.save("best(accuracy=%.2f).pth" % accuracy)
         self.model.train()
 
     def validate(self, dataset):
@@ -137,21 +142,28 @@ class Trainer:
         self.model.train()
 
     def save_state_dict(self):
-        torch.save(self.model.state_dict(), f"checkpoints/epoch={self.epoch}.pth")
+        torch.save(self.model.state_dict(), f"checkpoints/{self.name}/epoch={self.epoch}.pth")
 
     def save(self, path):
-        torch.save(self.model, path)
+        torch.save(self.model, os.path.join('checkpoints', self.name, path))
 
 
 if __name__ == '__main__':
-    device = torch.device(0)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str)
+    parser.add_argument('--device', type=int)
+    args = parser.parse_args()
+    with open(args.config, 'r') as f:
+        config = json.load(f)
+    device = torch.device(args.device)
+
     print("Loading datasets...")
     train_dataset = BiRdQA('train.csv', 'wiki_info_v2.json', n_options=5, device=device)
     test_dataset = BiRdQA('val.csv', 'wiki_info_v2.json', n_options=5, device=device)
 
     print("Building model...")
-    model = ERNIEGuesser(n_options=5, n_layers=6, n_hidden=512, feature_concat='all', use_ln=True, dropout=0.2)
-    trainer = Trainer(model, train_dataset, test_dataset, device=device)
+    model = ERNIEGuesser(**config['model_config'])
+    trainer = Trainer(model, train_dataset, test_dataset, **config['trainer_config'], device=device)
 
     print("Start training")
     trainer.train()

@@ -1,0 +1,22 @@
+{
+  "model_config":
+  {
+    "n_options": 5,
+    "n_layers": 6,
+    "n_hidden": 512,
+    "feature_concat": "each",
+    "use_ln": false,
+    "dropout": 0.1
+  },
+  "trainer_config":
+  {
+    "name": "exp2",
+    "batch_size": 128,
+    "n_epochs": 400,
+    "lr": 3e-5,
+    "lr_decay": 0.99,
+    "print_every": 10,
+    "test_every": 10,
+    "save_every": 20
+  }
+}
