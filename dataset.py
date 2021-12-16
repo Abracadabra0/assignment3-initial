@@ -26,13 +26,13 @@ class BiRdQA(Dataset):
         length = len(df['choice0'].to_list())
         all_options = reduce(add, (df[f'choice{i}'].to_list() for i in range(5)))
         all_options = [info[i] for i in all_options]
-        all_options = self.tokenizer(all_options,
-                                     padding=True,
-                                     truncation=True,
-                                     max_length=max_length,
-                                     return_tensors='pt')
-        self.options_input_ids = torch.stack(torch.split(all_options['input_ids'], length)).permute(1, 0, 2).contiguous().to(device)
-        self.options_attention_mask = torch.stack(torch.split(all_options['attention_mask'], length)).permute(1, 0, 2).contiguous().to(device)
+        all_options_tokenized = self.tokenizer(all_options,
+                                               padding=True,
+                                               truncation=True,
+                                               max_length=max_length,
+                                               return_tensors='pt')
+        self.options_input_ids = torch.stack(torch.split(all_options_tokenized['input_ids'], length)).permute(1, 0, 2).contiguous().to(device)
+        self.options_attention_mask = torch.stack(torch.split(all_options_tokenized['attention_mask'], length)).permute(1, 0, 2).contiguous().to(device)
 
         self.labels = torch.LongTensor(df.label.to_list()).to(device)
 

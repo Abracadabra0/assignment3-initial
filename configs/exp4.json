@@ -4,7 +4,6 @@
     "n_options": 5,
     "n_layers": 6,
     "n_hidden": 512,
-    "feature_concat": "each",
     "use_ln": true,
     "dropout": 0
   },

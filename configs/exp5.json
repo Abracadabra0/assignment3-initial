@@ -5,11 +5,11 @@
     "n_layers": 6,
     "n_hidden": 512,
     "use_ln": true,
-    "dropout": 0.1
+    "dropout": 0
   },
   "trainer_config":
   {
-    "name": "exp3",
+    "name": "exp5",
     "batch_size": 128,
     "n_epochs": 400,
     "lr": 3e-5,

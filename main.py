@@ -109,9 +109,9 @@ class Trainer:
         self.writer.add_scalar('test/accuracy', accuracy, self.epoch)
         print(f'Epoch {self.epoch}: test loss={loss}, test accuracy={accuracy}')
         if accuracy > self.best_accuracy:
-            for filename in os.listdir('checkpoints'):
+            for filename in os.listdir(f'checkpoints/{self.name}'):
                 if filename.find('best') != -1:
-                    os.remove(os.path.join('checkpoints', filename))
+                    os.remove(os.path.join(f'checkpoints/{self.name}', filename))
             self.best_accuracy = accuracy
             self.save("best(accuracy=%.2f).pth" % accuracy)
         self.model.train()
@@ -158,8 +158,10 @@ if __name__ == '__main__':
     device = torch.device(args.device)
 
     print("Loading datasets...")
-    train_dataset = BiRdQA('train.csv', 'wiki_info_v2.json', n_options=5, device=device)
-    test_dataset = BiRdQA('val.csv', 'wiki_info_v2.json', n_options=5, device=device)
+    dataset = BiRdQA('all.csv', 'wiki_info_v2.json', n_options=5, device=device)
+    train_size = int(len(dataset) * 0.8)
+    test_size = int(len(dataset) - train_size)
+    train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
 
     print("Building model...")
     model = ERNIEGuesser(**config['model_config'])
