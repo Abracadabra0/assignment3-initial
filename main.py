@@ -15,10 +15,10 @@ class Trainer:
                  model,
                  train_dataset,
                  test_dataset,
-                 batch_size=64,
-                 n_epochs=100,
-                 lr=5e-5,
-                 lr_decay=0.98,
+                 batch_size=128,
+                 n_epochs=400,
+                 lr=3e-5,
+                 lr_decay=0.99,
                  print_every=10,
                  test_every=10,
                  save_every=10,
@@ -43,10 +43,10 @@ class Trainer:
         self.writer = SummaryWriter()
 
     def train(self):
-        self.model.to(self.device)
-        self.model.eval()
-        pbar = tqdm(total=self.n_epochs * len(self.train_dataloader.dataset))
+        self.model.train()
+        pbar = tqdm(total=self.n_epochs * len(self.train_dataloader))
         for epoch in range(self.n_epochs):
+            all_correct = 0
             for batch in self.train_dataloader:
                 self.optimizer.zero_grad()
                 (riddle_input_ids,
@@ -62,12 +62,16 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
                 self.step += 1
+                pred = torch.argmax(log_prob, dim=1)
+                correct = (pred == label).sum()
+                all_correct += correct
                 pbar.update(1)
                 self.writer.add_scalar('train/loss', loss.item(), self.step)
                 if self.step % self.print_every == 0:
                     print(f"Step {self.step}: loss = {loss.item()}")
             self.scheduler.step()
             self.epoch += 1
+            self.writer.add_scalar('train/accuracy', all_correct / len(self.train_dataloader.dataset), self.epoch)
             if self.epoch % self.test_every == 0:
                 self.test()
             if self.epoch % self.save_every == 0:
@@ -104,16 +108,15 @@ class Trainer:
                 if filename.find('best') != -1:
                     os.remove(os.path.join('checkpoints', filename))
             self.best_accuracy = accuracy
-            self.save("checkpoints/best(accuracy=%.2d).pth" % accuracy)
+            self.save("checkpoints/best(accuracy=%.2f).pth" % accuracy)
         self.model.train()
 
     def validate(self, dataset):
         self.model.eval()
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
         with torch.no_grad():
             all_loss = 0
             all_correct = 0
-            i_iter = 0
             for batch in dataloader:
                 (riddle_input_ids,
                  riddle_attention_mask,
@@ -129,9 +132,8 @@ class Trainer:
                 pred = torch.argmax(log_prob, dim=1)
                 correct = (pred == label).sum()
                 all_correct += correct
-                i_iter += 1
-        print(f'Loss = {all_loss / i_iter}')
-        print(f'Accuracy = {all_correct / len(dataloader)}')
+        print(f'Loss = {all_loss / len(dataloader)}')
+        print(f'Accuracy = {all_correct / len(dataloader.dataset)}')
         self.model.train()
 
     def save_state_dict(self):
@@ -145,15 +147,11 @@ if __name__ == '__main__':
     device = torch.device(0)
     print("Loading datasets...")
     train_dataset = BiRdQA('train.csv', 'wiki_info_v2.json', n_options=5, device=device)
-    val_dataset = BiRdQA('val.csv', 'wiki_info_v2.json', n_options=5, device=device)
-    train_size = int(len(train_dataset) * 0.8)
-    test_size = len(train_dataset) - train_size
-    train_dataset, test_dataset = random_split(train_dataset, [train_size, test_size])
+    test_dataset = BiRdQA('val.csv', 'wiki_info_v2.json', n_options=5, device=device)
 
     print("Building model...")
-    model = ERNIEGuesser(n_options=5, n_layers=6, n_hidden=512, feature_concat='all', use_ln=True, dropout=0.1)
+    model = ERNIEGuesser(n_options=5, n_layers=6, n_hidden=512, feature_concat='all', use_ln=True, dropout=0.2)
     trainer = Trainer(model, train_dataset, test_dataset, device=device)
 
     print("Start training")
     trainer.train()
-    trainer.validate(val_dataset)
